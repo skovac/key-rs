@@ -12,17 +12,3 @@ impl Default for Service {
         }
     }
 }
-
-//impl Clone for Service {
-//    fn clone(&self) -> Self {
-//        Service {
-//            kv: self.kv.clone(),
-//        }
-//    }
-//}
-
-//impl Service {
-//    pub fn get_all(self) -> Arc<Mutex<HashMap<String, String>>> {
-//        Arc::clone(&self.kv)
-//    }
-//}
