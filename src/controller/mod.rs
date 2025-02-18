@@ -22,8 +22,21 @@ async fn list(
 }
 
 pub async fn serve() -> anyhow::Result<()> {
-    let kv = HashMap::<String, String>::new();
+    let kv_svc = crate::service::Service::new();
 
+    thread::spawn(move || {
+        let mut i = 0;
+        while i < 10 {
+            thread::sleep(Duration::from_millis(50));
+
+            let kv = kv_svc.clone();
+            kv.insert("test".to_string(), "test".to_string());
+            i += 1;
+        }
+        println!("done with svc struct");
+    });
+
+    let kv = HashMap::<String, String>::new();
     let api_context = Arc::new(Mutex::new(kv));
 
     let kv_add = Arc::clone(&api_context);
