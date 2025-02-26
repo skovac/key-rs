@@ -7,6 +7,6 @@ mod service;
 async fn main() {
     let _config = config::Config {};
     let _provider = provider::Provider {};
-    let _service = service::Service::new();
-    let _ = controller::serve().await;
+    let service = service::Service::new();
+    let _ = controller::serve(service).await;
 }

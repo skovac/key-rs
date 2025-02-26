@@ -1,76 +1,62 @@
+use crate::service::Service;
 use anyhow::Context;
-use axum::{extract::State, routing::get, Json, Router};
-use rand::{self, Rng};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
-use std::{
-    collections::HashMap,
-    net::{Ipv4Addr, SocketAddr},
+use axum::{
+    extract::{Path, State},
+    routing::{delete, get, post},
+    Json, Router,
 };
+use serde::Deserialize;
+use std::collections::HashMap;
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::TcpListener;
 
-async fn root(_state: State<Arc<Mutex<HashMap<String, String>>>>) -> String {
+async fn root(_state: State<Service>) -> String {
     String::from("works\n")
 }
 
-async fn list(
-    State(state): State<Arc<Mutex<HashMap<String, String>>>>,
-) -> Json<HashMap<String, String>> {
-    let kv = state.lock().unwrap();
-    Json(kv.clone())
+async fn list(State(service): State<Service>) -> Json<HashMap<String, String>> {
+    Json(service.list())
 }
 
-pub async fn serve() -> anyhow::Result<()> {
-    let kv_svc = crate::service::Service::new();
+#[derive(Deserialize)]
+struct KeyValue {
+    value: String,
+}
 
-    thread::spawn(move || {
-        let mut i = 0;
-        while i < 10 {
-            thread::sleep(Duration::from_millis(50));
+// GET /key/:key - Get a value by key
+async fn get_value(
+    Path(key): Path<String>,
+    State(service): State<Service>,
+) -> Json<Option<String>> {
+    Json(service.get(&key))
+}
 
-            let kv = kv_svc.clone();
-            kv.insert("test".to_string(), "test".to_string());
-            i += 1;
-        }
-        println!("done with svc struct");
-    });
+// POST /key/:key - Insert or update a value
+async fn insert_value(
+    Path(key): Path<String>,
+    State(service): State<Service>,
+    Json(payload): Json<KeyValue>,
+) -> String {
+    service.insert(key, payload.value);
+    "OK".to_string()
+}
 
-    let kv = HashMap::<String, String>::new();
-    let api_context = Arc::new(Mutex::new(kv));
+// DELETE /key/:key - Delete a value
+async fn delete_value(
+    Path(key): Path<String>,
+    State(service): State<Service>,
+) -> Json<Option<String>> {
+    Json(service.remove(&key))
+}
 
-    let kv_add = Arc::clone(&api_context);
-    thread::spawn(move || {
-        let mut i = 0;
-        loop {
-            thread::sleep(Duration::from_millis(50));
-            let mut kv_add_locked = kv_add.lock().unwrap();
-            (*kv_add_locked).insert(i.to_string(), String::from("User ") + &i.to_string());
-            i += 1;
-        }
-    });
-
-    let kv_delete = Arc::clone(&api_context);
-    thread::spawn(move || {
-        let mut rand_generator = rand::thread_rng();
-        loop {
-            thread::sleep(Duration::from_millis(50));
-            let mut kv_delete_locked = kv_delete.lock().unwrap();
-
-            let keys: Vec<String> = kv_delete_locked.keys().cloned().collect();
-            if keys.len() > 10 {
-                let key_index = rand_generator.gen_range(0..keys.len());
-                let td = &keys[key_index];
-
-                (*kv_delete_locked).remove(&td.to_string());
-            }
-        }
-    });
-
+pub async fn serve(service: Service) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/", get(root))
         .route("/list", get(list))
-        .with_state(Arc::clone(&api_context));
+        .route("/key/{key}", get(get_value))
+        .route("/key/{key}", post(insert_value))
+        .route("/key/{key}", delete(delete_value))
+        .with_state(service);
 
     let addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 8080));
     let listener = TcpListener::bind(addr).await?;
