@@ -17,12 +17,12 @@ impl Service {
     }
 
     /// Create a new Service with an existing KeyValueStore
-    pub fn with_store(store: KeyValueStore) -> Self {
+    pub fn _with_store(store: KeyValueStore) -> Self {
         Service { kv: store }
     }
 
     /// Access the underlying KeyValueStore
-    pub fn store(&self) -> KeyValueStore {
+    pub fn _store(&self) -> KeyValueStore {
         Arc::clone(&self.kv)
     }
 
