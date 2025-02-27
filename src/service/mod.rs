@@ -28,9 +28,7 @@ impl Service {
 
     pub fn insert(&self, key: String, value: String) {
         if let Ok(mut kv) = self.kv.lock() {
-            for _i in 0..10 {
-                kv.insert(key.clone(), value.clone());
-            }
+            kv.insert(key.clone(), value.clone());
         }
     }
 
